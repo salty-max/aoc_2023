@@ -1,47 +1,57 @@
-use std::{
-    env, fs,
-    io::{self, BufRead},
-};
+use std::fs;
 
-fn get_double_digit_from_string(s: &str) -> Option<u32> {
-    let digits: Vec<char> = s.chars().filter(|c| c.is_ascii_digit()).collect();
+const WORD_TO_DIGIT_MAP: [(&str, char); 9] = [
+    ("one", '1'),
+    ("two", '2'),
+    ("three", '3'),
+    ("four", '4'),
+    ("five", '5'),
+    ("six", '6'),
+    ("seven", '7'),
+    ("eight", '8'),
+    ("nine", '9'),
+];
 
-    if digits.len() >= 2 {
-        let first_digit = digits[0].to_digit(10)?;
-        let last_digit = digits[digits.len() - 1].to_digit(10)?;
+fn get_combined_digits(line: &str) -> u32 {
+    let mut positions: Vec<(usize, char)> = Vec::new();
 
-        Some(first_digit * 10 + last_digit)
-    } else if digits.len() == 1 {
-        let digit = digits[0].to_digit(10)?;
-
-        Some(digit * 10 + digit)
-    } else {
-        None
-    }
-}
-
-fn main() {
-    let cwd = env::current_dir().unwrap();
-    let input_file_path = cwd.join("input.txt");
-
-    let file = fs::File::open(input_file_path).unwrap();
-    let reader = io::BufReader::new(file);
-
-    let mut res = 0;
-
-    for line in reader.lines() {
-        match line {
-            Ok(line) => {
-                let double_digit = get_double_digit_from_string(&line);
-
-                match double_digit {
-                    Some(number) => res += number,
-                    None => continue,
-                }
-            }
-            Err(_) => continue,
+    // Find positions of spelled-out numbers
+    for &(word, digit) in &WORD_TO_DIGIT_MAP {
+        let mut idx = 0;
+        while let Some(start_idx) = line[idx..].find(word) {
+            let position = start_idx + idx;
+            positions.push((position, digit));
+            idx = position + 1;
         }
     }
 
-    println!("{res}");
+    // Add positions of existing numerical digits
+    positions.extend(line.char_indices().filter_map(|(idx, ch)| {
+        if ch.is_ascii_digit() {
+            Some((idx, ch))
+        } else {
+            None
+        }
+    }));
+
+    // Handle no digits case
+    if positions.is_empty() {
+        return 0;
+    }
+
+    // Sort positions by index
+    positions.sort_unstable_by_key(|&(idx, _)| idx);
+
+    // Extract first and last digit based on combined order
+    let first = positions[0].1;
+    let last = positions[positions.len() - 1].1;
+    format!("{}{}", first, last).parse::<u32>().unwrap_or(0)
+}
+
+fn main() {
+    let content = fs::read_to_string("input.txt").unwrap();
+
+    let sum: u32 = content.lines().map(get_combined_digits).sum();
+
+    println!("{}", sum); // Corrected the print statement
 }
